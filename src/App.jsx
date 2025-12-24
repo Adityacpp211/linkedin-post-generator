@@ -83,7 +83,7 @@ const App = () => {
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const audioRef = useRef(null);
 
-    const apiKey = ""; // API Key provided by environment
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ""; // API Key provided by environment
 
     // Mock Data Initialization
     const initialTrends = [
