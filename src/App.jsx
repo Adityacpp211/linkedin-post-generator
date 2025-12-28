@@ -9,6 +9,7 @@ import PreviewPanel from './components/preview/PreviewPanel';
 import ContentQueue from './components/dashboard/ContentQueue';
 import { safeParseJSON } from './utils/helpers';
 import { addWavHeader } from './utils/audioUtils';
+import { MODELS } from './config/models';
 
 // --- Subcomponents within App logic ---
 const NavItem = ({ icon, label, active, collapsed, onClick }) => (
@@ -56,6 +57,7 @@ const App = () => {
     const [showNotifications, setShowNotifications] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [errorMsg, setErrorMsg] = useState(null);
+    const [isKeyMissing, setIsKeyMissing] = useState(false);
 
     // Content Queue State
     const [queueFilter, setQueueFilter] = useState('All'); // All, Pending, Approved, Rejected
@@ -83,7 +85,14 @@ const App = () => {
     const [isPlayingAudio, setIsPlayingAudio] = useState(false);
     const audioRef = useRef(null);
 
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || ""; // API Key provided by environment
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+    useEffect(() => {
+        console.log("API Key loaded:", !!apiKey);
+        if (!apiKey) {
+            setIsKeyMissing(true);
+            showError("API Key is missing! Check your .env file.");
+        }
+    }, []);
 
     // Mock Data Initialization
     const initialTrends = [
@@ -213,7 +222,7 @@ const App = () => {
       `;
 
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.text}:generateContent?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -224,7 +233,11 @@ const App = () => {
                 }
             );
 
-            if (!response.ok) throw new Error(`API Error: ${response.status}`);
+            if (!response.ok) {
+                const errData = await response.json();
+                console.error("API Error Details:", errData);
+                throw new Error(`API Error: ${response.status} - ${errData.error?.message || response.statusText}`);
+            }
 
             const data = await response.json();
             const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -261,7 +274,7 @@ const App = () => {
         try {
             const prompt = `Analyze tech impact: "${trend.title}". Give 3 bullet points. Plain text.`;
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.text}:generateContent?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -297,7 +310,7 @@ const App = () => {
         try {
             const prompt = `Write a tweet (max 280 chars) about: "${currentTrend.title} - ${currentTrend.summary}". ${toneInstruction} Include hashtags.`;
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.text}:generateContent?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -336,7 +349,7 @@ const App = () => {
       Return ONLY the new text. Keep it under 280 chars.`;
 
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.text}:generateContent?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -369,7 +382,7 @@ const App = () => {
       `;
 
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.text}:generateContent?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -409,7 +422,7 @@ const App = () => {
         try {
             const prompt = `Editorial tech illustration for "${currentTrend.title}". Futuristic, 3D abstract render, neon, cyberpunk, 8k.`;
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.image}:predict?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -443,7 +456,7 @@ const App = () => {
             const textToRead = generatedPreviewText || `${currentTrend.title}. ${currentTrend.summary}`;
 
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${MODELS.tts}:generateContent?key=${apiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -588,6 +601,13 @@ const App = () => {
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col overflow-hidden relative z-10">
+
+                {/* API Key Warning Banner */}
+                {isKeyMissing && (
+                    <div className="bg-red-500/90 text-white px-4 py-2 text-center text-sm font-bold backdrop-blur-md z-50">
+                        ⚠️ API Key Not Found. Please create a .env file with VITE_GEMINI_API_KEY and RESTART the server.
+                    </div>
+                )}
 
                 {/* Header */}
                 <header className="h-16 bg-black/20 backdrop-blur-md border-b border-white/5 flex items-center justify-between px-8 sticky top-0 z-40">
